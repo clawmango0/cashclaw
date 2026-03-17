@@ -4,39 +4,53 @@ Adds Ollama as a new LLM provider option, enabling CashClaw to use local models.
 
 ## Changes
 
-### Backend
-- Add `ollama` to `LLMConfig.provider` type in `src/config.ts`
-- Add default model `llama3` for Ollama in the config defaults
-- Create dedicated `createOllamaProvider()` function with Ollama-specific handling
+### Backend (`src/`)
+- `config.ts`: Add `ollama` to `LLMConfig.provider` type, default model `llama3.1`, make apiKey optional for local Ollama, update `isConfigured()` to not require apiKey for Ollama
+- `llm/index.ts`: Create dedicated `createOllamaProvider()` function with Ollama-specific handling (localhost:11434, no auth required)
 
-### Frontend
-- Add Ollama option to setup wizard (`src/ui/pages/setup/LLMStep.tsx`)
-- Add Ollama option to settings page (`src/ui/pages/Settings.tsx`)
+### Frontend (`src/ui/`)
+- `pages/setup/LLMStep.tsx`: Add Ollama option to setup wizard
+- `pages/Settings.tsx`: Add Ollama option to settings page
 
-## Important Notes
+### Tests (`test/`)
+- `llm.test.ts`: Add 15 comprehensive tests for Ollama provider
 
-### Tool Calling Support
+## Important: Tool Calling Support
+
 Ollama's tool calling support **varies by model**:
-- Works: llama3.1, qwen2.5, mistral (and newer versions)
-- Does not work: llama3, llama2, older models
 
-The provider includes helpful error messages when tool calling isn't supported.
+| Model | Tool Calling |
+|-------|--------------|
+| llama3.1 | ✅ Supported |
+| qwen2.5 | ✅ Supported |
+| mistral | ✅ Supported |
+| llama3 | ❌ Not supported |
+| llama2 | ❌ Not supported |
 
-### Requirements
+**The provider includes helpful error messages** when tool calling isn't supported by the model.
+
+## Requirements
+
 - Ollama >= 0.1.20
 - A model with tool calling support (llama3.1, qwen2.5, mistral)
 - Ollama must be running (`ollama serve`)
 
 ## Usage
 
-1. Install Ollama: `curl -fsSL https://ollama.com/install.sh`
-2. Pull a model with tool support:
-   - `ollama pull llama3.1` (recommended)
-   - `ollama pull qwen2.5`
-   - `ollama pull mistral`
-3. Start Ollama server: `ollama serve`
-4. In CashClaw setup, select **"OLLAMA"** provider
-5. API key is NOT required for local Ollama
+```bash
+# 1. Install Ollama
+curl -fsSL https://ollama.com/install.sh
+
+# 2. Pull a model with tool support (recommended)
+ollama pull llama3.1
+
+# 3. Start Ollama server
+ollama serve
+
+# 4. In CashClaw setup, select "OLLAMA" provider
+#    - API key is NOT required for local Ollama
+#    - Default model: llama3.1
+```
 
 ## Example Config
 
@@ -52,27 +66,33 @@ The provider includes helpful error messages when tool calling isn't supported.
 
 ## Testing
 
-All tests pass (20 total):
+All tests pass (22 total):
 
 ```
-✓ test/llm.test.ts (13 tests)
-✓ test/loop.test.ts (7 existing tests)
+✓ test/llm.test.ts (15 tests)
+✓ test/loop.test.ts (7 tests)
 ```
 
-### New tests cover:
+### Ollama-specific tests:
 - Local base URL (http://localhost:11434)
 - No API key required for local instance
-- Custom model configuration
+- Empty string API key handled correctly
+- Custom model configuration (llama3.1, qwen:30b, mistral)
 - Tool call parsing from Ollama responses
 - Helpful error messages for unsupported tool calling
 - Error handling for API failures
+- Connection error handling (Ollama not running)
 
-## Benefits
+## Implementation Notes
 
-- **Privacy**: Your data stays local
-- **Cost**: No API fees for LLM calls
-- **Offline**: Works without internet
-- **Control**: Full GPU acceleration with local models
+1. **Dedicated Provider**: Unlike OpenAI/OpenRouter which share a provider, Ollama has its own provider function to handle:
+   - No authentication required for local instances
+   - Different error messages
+   - Ollama-specific options in the request body
+
+2. **Configuration**: The `isConfigured()` function now properly handles Ollama by not requiring an API key when the provider is "ollama".
+
+3. **Tool Calling**: CashClaw relies on tool calling for the agent to interact with the marketplace (quote tasks, submit work, etc.). Without tool support, the agent can only do text-based reasoning but cannot execute actions.
 
 ---
 
